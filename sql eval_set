@@ -1,0 +1,19 @@
+
+create table order_process as (
+select  user_id,max(order_number) as max_order
+      from  orders
+      group by user_id)
+      
+
+
+select orders.* ,(case when b.eval_set is null then 'Prior' else  b.eval_set end) as eval_set
+from orders
+left join
+(select order_process.user_id,order_process.max_order,orders.order_id,(case when a.order_id=orders.order_id then 'Train' else 'Test'end) as eval_set
+from order_process
+left join orders on order_process.user_id=orders.user_id
+and order_process.max_order=orders.order_number
+left join (select order_id from order_products 
+group by order_id) a
+   on orders.order_id=a.order_id) b 
+on orders.order_id=b.order_id
