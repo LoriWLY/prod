@@ -1,18 +1,19 @@
-   
+  
 CREATE TABLE process as
-SELECT min(order_products.order_id) as min_order,product_id,user_id 
+SELECT min(orders.order_number) as min_order,product_id,user_id 
 FROM order_products
 left join orders on order_products.order_id =orders.order_id
 group by order_products.product_id ,orders.user_id 
 
-
-Create table process_2 as
-select order_products.order_id,product_id,user_id 
+Create table process_1 as
+select order_products.order_id,product_id,user_id,add_to_cart_order,order_number
 from order_products
 left join orders on order_products.order_id=orders.order_id
 
 Create table order_products_new as
-select process_2.user_id,process_2.product_id,process_2.order_id,(CASE WHEN process_2.order_id=process.min_order THEN 0  ELSE 1 END) AS Recorded
-from process_2
-left join process on  process_2.user_id=process.user_id
-and process_2.product_id=process.product_id
+select process_1.order_id,process_1.product_id,add_to_cart_order,(CASE WHEN process_1.order_number=process.min_order THEN 0  ELSE 1 END) AS Recorded
+from process_1
+left join process on  process_1.user_id=process.user_id
+and process_1.product_id=process.product_id
+
+select sum(recorded) from order_products_new 
