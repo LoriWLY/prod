@@ -1,0 +1,28 @@
+
+1.
+CREATE TABLE order_products_prior WITH (external_location = 's3://imba-lori/features/order_products_prior/', format = 'parquet') as (
+select order_new.*, order_products_new.product_id, order_products_new.add_to_cart_order, order_products_new.recorded  
+from order_new 
+left join order_products_new 
+on order_new.order_id=order_products_new.order_id
+where order_new.eval_set ='Prior')
+
+
+2.
+CREATE TABLE user_features_1 WITH (external_location = 's3://imba-lori/features/user_features_1/', format = 'parquet') 
+as (
+select user_id, max(order_number) as max_order_number,
+sum((case when days_since_prior_order ='NA' then 0 else cast(days_since_prior_order as bigint) end)) as sum_DSPO,
+round(avg((case when days_since_prior_order ='NA' then 0 else cast(days_since_prior_order as bigint) end)),2) as ave_DSPO 
+from order_new 
+group by user_id)
+
+
+3.
+select  user_id,product_id, product_count,
+(case when order_number_count=0 then 0 else round((reorder_count/order_number_count),2) end) as reorder_ratio 
+from (
+select  user_id,product_id, count(product_id) as product_count ,sum(recorded) as reorder_count, 
+  sum((case when order_number>1 then 1 else 0 end)) as order_number_count
+from order_products_prior
+group by user_id, product_id) 
