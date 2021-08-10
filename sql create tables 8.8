@@ -1,5 +1,6 @@
 
 1.
+
 CREATE TABLE order_products_prior WITH (external_location = 's3://imba-lori/features/order_products_prior/', format = 'parquet') as (
 select order_new.*, order_products_new.product_id, order_products_new.add_to_cart_order, order_products_new.recorded  
 from order_new 
@@ -9,6 +10,7 @@ where order_new.eval_set ='Prior')
 
 
 2.
+
 CREATE TABLE user_features_1 WITH (external_location = 's3://imba-lori/features/user_features_1/', format = 'parquet') 
 as (
 select user_id, max(order_number) as max_order_number,
@@ -18,11 +20,36 @@ from order_new
 group by user_id)
 
 
+
 3.
+create table user_features_2 with (external_location = 's3://imba-lori/features/user_features_1/', format = 'parquet') 
+as (
 select  user_id,product_id, product_count,
 (case when order_number_count=0 then 0 else round((reorder_count/order_number_count),2) end) as reorder_ratio 
 from (
 select  user_id,product_id, count(product_id) as product_count ,sum(recorded) as reorder_count, 
   sum((case when order_number>1 then 1 else 0 end)) as order_number_count
 from order_products_prior
-group by user_id, product_id) 
+group by user_id, product_id) )
+
+
+4.
+CREATE TABLE up_features WITH (external_location = 's3://imba-lori/features/up_features/', format = 'parquet') as (
+select count(order_id) as order_count,min(order_number) as min_order_number,
+max(order_number) as max_order_number,round(avg(add_to_cart_order),2) as avg_ATCO
+from order_products_prior
+group by user_id, product_id)
+
+
+
+5.
+
+CREATE TABLE prd_features WITH (external_location = 's3://imba-lori/features/prd_features/', format = 'parquet')
+as (
+select  user_id,product_id ,count(product_id) as total_product,sum(recorded) as reorded_count,
+Sum(CASE WHEN product_seq_time = 1 THEN 1 ELSE 0 END) as seq_1,
+Sum(CASE WHEN product_seq_time = 2 THEN 1 ELSE 0 END) as seq_2
+from
+(select user_id,product_id,recorded,rank() over (partition by user_id,product_id order by  order_number) as  product_seq_time 
+from order_products_prior)
+group by user_id,product_id)
